@@ -1,0 +1,36 @@
+```{r}
+(nba <- read.csv('https://shorturl.at/hAFV4'))
+```
+```{r}
+nba %>% 
+  filter(g > 58) %>% 
+  mutate(fgtoft = fga/fta) %>% 
+  arrange(fgtoft) 
+```
+```{r}
+nba %>% 
+  filter(g > 58) %>% 
+  ggplot(aes(x = blk, y = drtg)) + 
+    geom_point()
+```
+
+```{r}
+nba %>% 
+  mutate(od = ortg / drtg, div = case_when(
+    tm %in% c('BOS', 'NYK', 'PHI', 'BRK', 'TOR') ~ "A",
+    tm %in% c('CLE', 'CHI', 'DET', 'IND', 'MIL') ~ "C",
+    tm %in% c('ATL', 'CHO', 'MIA', 'ORL', 'WAS') ~ "SE",
+    tm %in% c('DEN', 'MIN', 'POR', 'OKC', 'UTA') ~ "NW",
+    tm %in% c('GSW', 'LAC', 'LAL', 'PHX', 'SAC') ~ "P",
+    tm %in% c('DAL', 'HOU', 'MEM', 'NOP', 'SAS') ~ "SW"
+  )) %>% 
+  group_by(div) %>% 
+  summarize(mean(od, na.rm = TRUE))
+```
+
+```{r}
+nba %>% 
+  mutate(ts = pts / (2*(fga + (0.44*fta)))) %>% 
+  arrange(desc(ts))
+```
+

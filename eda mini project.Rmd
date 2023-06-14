@@ -1,0 +1,55 @@
+---
+title: "Mini Project"
+author: "Kristopher Wilson"
+date: "2023-06-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning=FALSE, message=FALSE)
+```
+
+```{r}
+library(tidyverse)
+nba_data = read_csv("https://shorturl.at/hAFV4")
+```
+
+## Explanation of the structure:
+
+The dataset is a tibble of `r count(nba_data)` observations (rows) of `r length(nba_data)` variables. The counting stats are reported on a per 100 team possessions scale, to normalize for playing time differences. That said, we removed players who appeared in under 58 games, to account for sample size and minutes played (prior to the new CBA, 58 was the minimum number of games a player needed to appear in to be eligible for awards).
+
+```{r}
+rm(nba_data)
+nba2 <- read_csv("C:/Users/ka2nd/Downloads/nba2.csv")
+nba = nba2[-c(6,33,62,80,82,86,93,99,108,139,143,146,
+              157,162,204,214,228,293,303,306),]
+```
+
+```{r}
+nba$pos <- gsub("-.*$", "", nba$pos)
+```
+
+```{r}
+nba %>% ggplot(aes(x=pos,y=pts)) + geom_col()
+#p1 = nba %>% ggplot(aes(x=pos))
+#p1+geom_bar()
+```
+
+```{r}
+nba_sums = nba %>% 
+  select(c(pos,pts,trb,ast,stl,blk)) %>% 
+  group_by(pos) %>% 
+  summarize(across(everything(), mean)) %>% 
+  ungroup()
+```
+
+```{r}
+plot2 = nba_sums %>% ggplot(aes(x=pos,y=blk))
+plot2+geom_col()
+```
+
+```{r}
+
+```
+

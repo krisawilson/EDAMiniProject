@@ -12,22 +12,16 @@ knitr::opts_chunk$set(echo = TRUE,
 
 ```{r}
 library(tidyverse)
+library(flexclust)
 nba_data = read_csv("https://shorturl.at/hAFV4")
 ```
 
-## Explanation of the structure:
-
-The dataset is a tibble of `r count(nba_data)` observations (rows) of `r length(nba_data)` variables. The counting stats are reported on a per 100 team possessions scale, to normalize for playing time differences. That said, we removed players who appeared in under 58 games, to account for sample size and minutes played (prior to the new CBA, 58 was the minimum number of games a player needed to appear in to be eligible for awards).
-
 ```{r}
-rm(nba_data)
-nba2 <- read_csv("C:/Users/ka2nd/Downloads/nba2.csv")
-nba = nba2[-c(6,33,62,80,82,86,93,99,108,139,143,146,
-              157,162,204,214,228,293,303,306),]
-```
-
-```{r}
-nba$pos <- gsub("-.*$", "", nba$pos)
+tot_plays = nba_data %>% filter(tm == "TOT")
+nba = nba_data %>% 
+  filter(!(player %in% tot_plays$player)) %>% 
+  bind_rows(tot_plays) %>% filter(mp >= 700)
+nba$pos <- as.factor(gsub("-.*$", "", nba$pos))
 ```
 
 ```{r}
@@ -50,6 +44,76 @@ plot2+geom_col()
 ```
 
 ```{r}
+nba2 = nba %>% 
+  mutate(std_pts = as.numeric(scale(pts)),
+         std_ast = as.numeric(scale(ast)))
+init_kmeanspp = nba2 %>% 
+  select(c(std_pts,std_ast)) %>% 
+  kcca(k=3, control = list(initcent = "kmeanspp"))
+nba2 %>% 
+  mutate(nba_clusters = as.factor(init_kmeanspp@cluster)) %>% 
+  ggplot(aes(x=pts, y=ast, color=nba_clusters)) + 
+  geom_jitter() + labs(
+    title = "Most Similar Players by Points and Assists",
+    subtitle = "K-Means Clustering",
+    x = "Points", y="Assists") +
+  theme(legend.position = "right") +
+  geom_text(aes(label=ifelse(gs >= 65, player, "")),
+            hjust=.2, vjust=-1.5,size = 1.95)
+```
 
+create the mixture models!
+```{r}
+library(mclust)
+nba_mclust = Mclust(dplyr::select(nba2, std_pts, std_ast))
+```
+Display BIC for each model and number of clusters. We can extract the numerical value from the object itself
+```{r}
+plot(nba_mclust, what="BIC",
+     legendArgs = list(x="bottomright",
+                       ncol=4))
+plot(nba_mclust, what="classification")
+```
+Compare cluster assignments to positions
+```{r}
+table("Clusters" = nba_mclust$classification,
+      "Positions" = nba$pos)
+```
+Cluster probabilities:
+```{r}
+nba_player_probs = nba_mclust$z
+colnames(nba_player_probs) = paste0("Cluster",1:2)
+
+nba_player_probs = nba_player_probs %>% as_tibble() %>% 
+  mutate(player=
+           nba2$player) %>% 
+  pivot_longer(contains("Cluster"),
+               names_to = "cluster",
+               values_to = "prob")
+nba_player_probs %>% 
+  ggplot(aes(prob)) +
+  geom_histogram() + theme_bw() +
+  facet_wrap(~ cluster, nrow=2)
+```
+Highest uncertainty
+```{r}
+nba2 %>% 
+  mutate(cluster = nba_mclust$classification,
+         uncertainty = nba_mclust$uncertainty) %>% 
+  group_by(cluster) %>% 
+  arrange(desc(uncertainty)) %>% 
+  slice(1:5) %>% 
+  ggplot(aes(y=uncertainty,
+             x=reorder(player, uncertainty))) +
+  geom_point() + coord_flip() + theme_bw() +
+  facet_wrap(~ cluster, scales = "free_y",nrow=3)
+```
+
+```{r}
+nba3 = nba2 %>% 
+  mutate(ts = pts / (2*(fga + (0.44*fta))))
+nba3 = nba3 %>% filter(0 < x3ppercent & x3ppercent < 1)
+GGally::ggpairs(nba3,c(10,13,16,33,19)) + theme_classic() +
+  labs(x = "", y = "", title = "")
 ```
 
